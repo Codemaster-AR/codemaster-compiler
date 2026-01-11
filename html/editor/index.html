@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Live Compiler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        #editor-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #code-editor {
+            flex: 1;
+            background: #1e293b;
+            color: #e2e8f0;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            padding: 1rem;
+            border: none;
+            resize: none;
+            outline: none;
+            line-height: 1.5;
+            white-space: pre;
+            tab-size: 4;
+        }
+
+        #preview-pane {
+            background: white;
+            border-left: 4px solid #334155;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }
+
+        .resizer {
+            width: 8px;
+            cursor: col-resize;
+            background: #334155;
+            transition: background 0.2s;
+        }
+
+        .resizer:hover {
+            background: #3b82f6;
+        }
+
+        .label {
+            background: #334155;
+            padding: 4px 12px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            #editor-container {
+                flex-direction: column;
+            }
+            .resizer {
+                width: 100%;
+                height: 8px;
+                cursor: row-resize;
+            }
+            #preview-pane {
+                border-left: none;
+                border-top: 4px solid #334155;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-700 p-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 p-2 rounded-lg">
+                <i class="fas fa-code text-white text-xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight">HTML <span class="text-blue-400">Compiler</span></h1>
+        </div>
+        
+        <div class="flex gap-2">
+            <button id="clear-btn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-md transition text-sm">
+                <i class="fas fa-trash-alt mr-2"></i> Clear
+            </button>
+            <button id="copy-btn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-md transition text-sm">
+                <i class="fas fa-copy mr-2"></i> Copy
+            </button>
+            <button id="download-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-md transition text-sm font-semibold">
+                <i class="fas fa-download mr-2"></i> Download
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main id="editor-container">
+        <!-- Input Pane -->
+        <div class="pane" id="input-side">
+            <div class="label">
+                <span>Editor (HTML/CSS/JS)</span>
+                <span id="char-count" class="text-slate-400 font-normal">0 chars</span>
+            </div>
+            <textarea id="code-editor" spellcheck="false" placeholder="Type your HTML code here..."></textarea>
+        </div>
+
+        <div class="resizer" id="drag-bar"></div>
+
+        <!-- Output Pane -->
+        <div class="pane" id="preview-pane">
+            <div class="label text-slate-800 bg-slate-200">
+                <span>Live Preview</span>
+                <span class="flex gap-2">
+                    <i class="fas fa-desktop"></i>
+                    <i class="fas fa-tablet-alt opacity-50"></i>
+                    <i class="fas fa-mobile-alt opacity-50"></i>
+                </span>
+            </div>
+            <iframe id="output-frame"></iframe>
+        </div>
+    </main>
+
+    <!-- Footer Status -->
+    <footer class="bg-slate-900 border-t border-slate-700 px-4 py-2 flex justify-between text-xs text-slate-400">
+        <div>Ready to compile</div>
+        <div>v1.0.0 | UTF-8</div>
+    </footer>
+
+    <script>
+        const editor = document.getElementById('code-editor');
+        const output = document.getElementById('output-frame');
+        const charCount = document.getElementById('char-count');
+        const downloadBtn = document.getElementById('download-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const copyBtn = document.getElementById('copy-btn');
+
+        // Initial Boilerplate
+        const initialCode = `<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        h1 { font-size: 3rem; margin-bottom: 0.5rem; }
+        button {
+            background: #fff;
+            color: #764ba2;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover { transform: scale(1.05); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Hello World!</h1>
+        <p>This is a real-time HTML compiler.</p>
+        <button onclick="greet()">Click Me</button>
+    </div>
+
+    <script>
+        function greet() {
+            alert("The compiler works!");
+        }
+    <\/script>
+</body>
+</html>`;
+
+        // Update functionality
+        function update() {
+            const code = editor.value;
+            const outputDoc = output.contentDocument || output.contentWindow.document;
+            
+            outputDoc.open();
+            outputDoc.write(code);
+            outputDoc.close();
+
+            charCount.textContent = `${code.length} chars`;
+            
+            // Auto-save to localStorage
+            localStorage.setItem('html_compiler_code', code);
+        }
+
+        // Event Listeners
+        editor.addEventListener('input', update);
+
+        // Tab Key Support
+        editor.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 4;
+            }
+        });
+
+        // Button Actions
+        clearBtn.addEventListener('click', () => {
+            if(confirm("Are you sure you want to clear the editor?")) {
+                editor.value = '';
+                update();
+            }
+        });
+
+        copyBtn.addEventListener('click', () => {
+            editor.select();
+            document.execCommand('copy');
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="fas fa-check mr-2"></i> Copied!';
+            setTimeout(() => copyBtn.innerHTML = originalText, 2000);
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const blob = new Blob([editor.value], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'index.html';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Resizer Logic
+        const dragBar = document.getElementById('drag-bar');
+        const container = document.getElementById('editor-container');
+        let isResizing = false;
+
+        dragBar.addEventListener('mousedown', () => isResizing = true);
+        window.addEventListener('mouseup', () => isResizing = false);
+        window.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const containerRect = container.getBoundingClientRect();
+            const percentage = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+            
+            if (percentage > 10 && percentage < 90) {
+                document.getElementById('input-side').style.flex = `0 0 ${percentage}%`;
+                document.getElementById('drag-bar').style.left = `${percentage}%`;
+            }
+        });
+
+        // Initialize
+        window.onload = () => {
+            const savedCode = localStorage.getItem('html_compiler_code');
+            editor.value = savedCode || initialCode;
+            update();
+        };
+    </script>
+</body>
+</html>
